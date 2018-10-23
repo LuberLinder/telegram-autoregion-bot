@@ -1,0 +1,4 @@
+cron:
+- description: "Set webhook"
+  url: /set_webhook
+  schedule: every 24 hours
