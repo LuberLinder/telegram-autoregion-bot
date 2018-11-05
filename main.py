@@ -1,115 +1,63 @@
-import requests
-from flask import (Flask, request, json)
+import logging
+import telegram
+from telegram.ext import (Dispatcher, Filters, MessageHandler, CommandHandler, CallbackQueryHandler)
+from flask import (Flask, request)
 import settings
-
-class BotHandlerMixin:  
-    BOT_URL = None
-
-    def get_chat_id(self, data):
-        '''
-        Method to extract chat id from telegram request.
-        '''
-        return data['message']['chat']['id']
-
-    def get_message(self, data):
-        '''
-        Method to extract message id from telegram request.
-        '''
-        return data['message']['text']
-
-    def send_message(self, data):
-        '''
-        Prepared data should be json which includes at least `chat_id` and `text`
-        '''       
-        url = self.BOT_URL + 'sendMessage'
-        requests.post(url, data=data)
-
-    def set_webhook(self, data):
-        '''
-        Prepared data should be json which includes at least `chat_id` and `text`
-        '''       
-        url = self.BOT_URL + 'setWebhook'
-        response = requests.post(url, data=data)
-        
-        return response
-
-class APIHandlerMixin:
-    API_URL = None
-    
-    def get_codes(self, code, country_id=1, lang_id=3):
-        '''
-        Make a request to the REST API's <codes> endpoint
-        '''
-        url = self.API_URL + 'codes'
-        payload = {
-            'country_id': country_id,
-            'code': code,
-            'lang_id': lang_id,
-        }
-        response = requests.get(url, params=payload)
-
-        return response.json()
+from handlers import *
 
 
-class TelegramBot(BotHandlerMixin, APIHandlerMixin, Flask):  
-    BOT_URL = settings.BOT_URL
+class TelegramBot(APIHandlerMixin, BotHandlerMixin, Flask):
+    TOKEN = settings.TOKEN
     API_URL = settings.API_URL
+    APP_URL = settings.APP_URL
+    DEFAULT = settings.DEFAULT
 
+    
     def __init__(self, import_name):
         super(TelegramBot, self).__init__(import_name)
-        self.route('/', methods=['POST'])(self.post_handler)
-        self.route('/set_webhook', methods=['GET'])(self.webhook_handler)
+        self.route('/', methods=['POST'])(self.process_update)
+        self.route('/set_webhook', methods=['GET'])(self.setWebhook)
+        self.bot = telegram.Bot(self.TOKEN)
+        self.dispatcher = self.setup()
 
-    def prepare_data_for_answer(self, data):
+
+    def setup(self):
         '''
-        Get a message from the chat and prepare a response on it.
-        A vehicle registration plate region code of the selected country
-        expected as the massage and a name of corresponding municipality
-        should be send back as the answer (or 'Not found' text) 
+        Set bot's handlers
         '''
-        answer = ''
-        message = self.get_message(data)
-        chat_id = self.get_chat_id(data)
-        response = self.get_codes(message)
+        dispatcher = Dispatcher(self.bot, None, workers=0)
+
+        dispatcher.add_handler(CommandHandler('start', self.start, pass_user_data=True))
+        dispatcher.add_handler(CommandHandler('lang', self.lang))
+        dispatcher.add_handler(CommandHandler('help', self.help))
+        dispatcher.add_handler(CommandHandler('settings', self.settings, pass_user_data=True))
+        dispatcher.add_handler(CallbackQueryHandler(self.put, pass_user_data=True))
+        dispatcher.add_handler(MessageHandler(Filters.text, self.process_message, pass_user_data=True))
         
-        for r in response:
-            try:
-                answer += f"{r['code']}: {r['name']} ({', '.join(r['cities'])})\n"
-            except:
-                # todo: logging should be here
-                pass
+        return dispatcher
+
+
+    def process_update(self):
+        '''
+        Get update from a chat and process it by handler
+        '''
+        self.update = telegram.update.Update.de_json(request.get_json(force=True), self.bot)
+        logger.info(self.update)
+        self.dispatcher.process_update(self.update)
         
-        if not answer:
-            answer = 'Not found'
+        return 'OK'
 
-        payload = {
-            'chat_id': chat_id,
-            'text': answer,
-        }
 
-        return payload
-
-    def post_handler(self):
+    def setWebhook(self):
         '''
-        Handler for the root url ('/'). 
-        Get a massage, prepare data for an answer, send the answer
+        Set webhook to APP_URL
         '''
-        data = request.get_json()
-        answer_data = self.prepare_data_for_answer(data)
-        self.send_message(answer_data)
+        response = self.bot.setWebhook(webhook_url=self.APP_URL)
 
-        return 'ok!'
+        return str(response)
 
-    def webhook_handler(self):
-        '''
-        Set webhook to application url in order to activate the bot
-        '''
-        payload = {
-            'url': settings.APP_URL,
-            'allowed_updates': ['message'],
-        }
-        response = self.set_webhook(payload)
-
-        return 'Result: ' + json.dumps(response.json())
 
 app = TelegramBot(__name__)
+
+logging.basicConfig(format='[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)

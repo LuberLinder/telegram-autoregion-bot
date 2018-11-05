@@ -1,8 +1,11 @@
 ## AutoRegion Telegram Bot
 
-This Telegram bot is based on a code that was described in the amazing 
+This Telegram bot is based on the code in [inlinekeyboard.py](https://github.com/python-telegram-bot/python-telegram-bot/blob/master/examples/inlinekeyboard.py) that is available in example directory in `python-telegram-bot` library. 
+The previous version of the bot was based on a code described in the amazing 
 article written by **Arez Khalimi** [How to Create and Deploy a Telegram Bot?](https://djangostars.com/blog/how-to-create-and-deploy-a-telegram-bot/).
-From this code I've changed Bottle WSGI micro web-framework to Flask, and added my own REST API. Another useful article is [I built a serverless Telegram bot over the weekend. Here’s what I learned](https://medium.freecodecamp.org/how-to-build-a-server-less-telegram-bot-227f842f4706) by **Moses Soh**.
+From this code I've changed Bottle WSGI micro web-framework to Flask, and added my own REST API. 
+Another useful articles are [I built a serverless Telegram bot over the weekend. Here’s what I learned](https://medium.freecodecamp.org/how-to-build-a-server-less-telegram-bot-227f842f4706) by **Moses Soh**
+and [Host a python Telegram bot on Azure in <30 minutes](https://hackernoon.com/host-a-python-telegram-bot-using-azure-in-30-minutes-58f246cedf23) by **Michał Żołnieruk**.
 
 The bot, available at `@autoregion_bot` (for instance, [https://web.telegram.org/#/im?p=@autoregion_bot](https://web.telegram.org/#/im?p=@autoregion_bot)), 
 receive vehicle registration plate region code (or part of the code) of a selected country and retrieve the corresponding municipality and cities in it. 
